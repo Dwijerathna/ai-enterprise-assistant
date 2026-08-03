@@ -1,27 +1,14 @@
-# Python
+# Python environments
+.venv/
+venv/
 
+# Python cache
 __pycache__/
 *.pyc
+
+# Environment variables
 .env
 
-
 # Node
-
 node_modules/
 .next/
-
-
-# Database
-
-*.sqlite
-
-
-# IDE
-
-.vscode/
-.idea/
-
-
-# Docker
-
-*.log
