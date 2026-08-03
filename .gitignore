@@ -1,0 +1,27 @@
+# Python
+
+__pycache__/
+*.pyc
+.env
+
+
+# Node
+
+node_modules/
+.next/
+
+
+# Database
+
+*.sqlite
+
+
+# IDE
+
+.vscode/
+.idea/
+
+
+# Docker
+
+*.log
