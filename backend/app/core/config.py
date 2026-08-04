@@ -33,16 +33,24 @@ class Settings(BaseSettings):
     postgres_host: str = "localhost"
     postgres_port: int = 5432
     postgres_db: str = "enterprise_ai"
+
     # Security
-secret_key: str
-jwt_algorithm: str = "HS256"
+    secret_key: str
+    jwt_algorithm: str = "HS256"
+    access_token_expire_minutes: int = 1
+    refresh_token_expire_days: int = 7
+    refresh_cookie_name: str = "refresh_token"
+    cookie_secure: bool = False
+    cookie_httponly: bool = True
 
-access_token_expire_minutes: int = 15
-refresh_token_expire_days: int = 7
-
-refresh_cookie_name: str = "refresh_token"
-cookie_secure: bool = False
-cookie_httponly: bool = True
+    # AI Configuration
+    ollama_base_url: str = "http://localhost:11434"
+    llm_model: str = "llama3"
+    embedding_model: str = "nomic-embed-text"
+    
+    # Vector Database
+    qdrant_host: str = "localhost"
+    qdrant_port: int = 6333
     
 
     # Logging
