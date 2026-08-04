@@ -34,14 +34,7 @@ class Settings(BaseSettings):
     postgres_port: int = 5432
     postgres_db: str = "enterprise_ai"
 
-    # Security
-    secret_key: str
-    jwt_algorithm: str = "HS256"
-    access_token_expire_minutes: int = 1
-    refresh_token_expire_days: int = 7
-    refresh_cookie_name: str = "refresh_token"
-    cookie_secure: bool = False
-    cookie_httponly: bool = True
+    
 
     # AI Configuration
     ollama_base_url: str = "http://localhost:11434"
@@ -55,6 +48,13 @@ class Settings(BaseSettings):
 
     # Logging
     log_level: str = "INFO"
+
+    # JWT Security
+    jwt_secret_key: str
+    jwt_algorithm: str = "HS256"
+
+    access_token_expire_minutes: int = 15
+    refresh_token_expire_days: int = 7
 
     @computed_field
     @property
