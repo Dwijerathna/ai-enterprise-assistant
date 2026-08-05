@@ -10,6 +10,7 @@ from app.models.DocumentProcessingLog import ProcessingLogStatus
 from app.repositories.document_chunk_repository import DocumentChunkRepository
 from app.repositories.document_processing_log_repository import DocumentProcessingLogRepository
 from app.repositories.document_repository import DocumentRepository
+from app.repositories.organization_repository import OrganizationRepository
 from app.services.ingestion_service import IngestionService
 from app.tasks.embedding_tasks import generate_embeddings_task
 
@@ -28,6 +29,7 @@ def process_document_task(document_id: str, organization_id: str) -> None:
     document_repo = DocumentRepository(db)
     chunk_repo = DocumentChunkRepository(db)
     log_repo = DocumentProcessingLogRepository(db)
+    org_repo = OrganizationRepository(db)
     ingestion_service = IngestionService()
 
     doc_uuid = uuid.UUID(document_id)
@@ -81,6 +83,7 @@ def process_document_task(document_id: str, organization_id: str) -> None:
                 for chunk in prepared_chunks
             ]
             saved_chunks = chunk_repo.create_chunks(chunk_models)
+            organization = org_repo.get_by_id(document.organization_id)
 
             current_stage = DocumentStatus.EMBEDDING.value
             document_repo.update_status(document, DocumentStatus.EMBEDDING)
@@ -91,10 +94,37 @@ def process_document_task(document_id: str, organization_id: str) -> None:
                     "organization_id": chunk.organization_id,
                     "chunk_index": chunk.chunk_index,
                     "content": chunk.content,
+                    "page_number": chunk.page_number,
+                    "section_title": chunk.section_title,
+                    "document_name": document.filename,
+                    "embedding_model": chunk.embedding_model,
+                    "collection_name": organization.qdrant_collection_name if organization else None,
+                    "department_id": None,
                 }
                 for chunk in saved_chunks
             ]
-            generate_embeddings_task(chunk_payloads)
+            embedding_results = generate_embeddings_task(chunk_payloads)
+            if saved_chunks and not embedding_results:
+                error_message = "Embedding provider unavailable"
+                logger.warning(
+                    "Embedding failed for document %s: %s",
+                    document_id,
+                    error_message,
+                )
+                document = document_repo.increment_retry_count(document)
+                log_repo.create_log(
+                    document.id,
+                    document.organization_id,
+                    stage=DocumentStatus.EMBEDDING.value,
+                    status=ProcessingLogStatus.FAILED,
+                    error_message=error_message,
+                )
+                if document.retry_count >= MAX_RETRY_COUNT:
+                    document_repo.update_status(document, DocumentStatus.FAILED)
+                else:
+                    document_repo.update_status(document, DocumentStatus.PENDING)
+                return
+
             log_repo.create_log(
                 document.id,
                 document.organization_id,

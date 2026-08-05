@@ -13,6 +13,7 @@ from app.db.base import Base
 
 if TYPE_CHECKING:
     from app.models.Conversation import Conversation
+    from app.models.MessageChunkReference import MessageChunkReference
 
 
 class MessageRole(str, enum.Enum):
@@ -59,3 +60,7 @@ class Message(Base):
     )
 
     conversation: Mapped[Conversation] = relationship(back_populates="messages")
+    chunk_references: Mapped[list[MessageChunkReference]] = relationship(
+        back_populates="message",
+        cascade="all, delete-orphan",
+    )

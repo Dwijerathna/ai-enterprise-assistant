@@ -60,6 +60,21 @@ class DocumentChunkRepository(BaseRepository[DocumentChunk]):
         )
         return list(self.db.scalars(stmt).all())
 
+    def get_chunks_by_ids(
+        self,
+        chunk_ids: list[uuid.UUID],
+        organization_id: uuid.UUID,
+    ) -> list[DocumentChunk]:
+        """Return chunks by ID scoped to an organization."""
+        if not chunk_ids:
+            return []
+
+        stmt = select(DocumentChunk).where(
+            DocumentChunk.id.in_(chunk_ids),
+            DocumentChunk.organization_id == organization_id,
+        )
+        return list(self.db.scalars(stmt).all())
+
     def delete_chunks_by_document(
         self,
         document_id: uuid.UUID,

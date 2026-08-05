@@ -12,6 +12,7 @@ from app.db.base import Base
 
 if TYPE_CHECKING:
     from app.models.Document import Document
+    from app.models.MessageChunkReference import MessageChunkReference
 
 
 class DocumentChunk(Base):
@@ -54,3 +55,6 @@ class DocumentChunk(Base):
     )
 
     document: Mapped[Document] = relationship(back_populates="chunks")
+    message_references: Mapped[list[MessageChunkReference]] = relationship(
+        back_populates="chunk",
+    )
