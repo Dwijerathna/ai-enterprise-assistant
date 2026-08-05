@@ -50,7 +50,7 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
 
     # JWT Security
-    jwt_secret_key: str
+    jwt_secret_key: str = "development-only-secret-key-change-later"
     jwt_algorithm: str = "HS256"
 
     access_token_expire_minutes: int = 15
