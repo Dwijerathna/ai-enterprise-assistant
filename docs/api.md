@@ -166,7 +166,7 @@ Response:
 
 {
     "document_id": "12345",
-    "status": "processing",
+    "processing_status": "uploading"
     "message": "Document processing started"
 }
 
@@ -205,12 +205,15 @@ Response:
 
 Possible Status Values:
 
-
 - pending
-- processing
+- uploading
+- extracting
+- cleaning
+- chunking
+- embedding
+- indexing
 - ready
 - failed
-
 # Organization Registration Flow
 
 
