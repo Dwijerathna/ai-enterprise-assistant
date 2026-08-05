@@ -46,6 +46,9 @@ class Settings(BaseSettings):
     qdrant_port: int = 6333
     
 
+    # Document storage
+    uploads_dir: str = "uploads"
+
     # Logging
     log_level: str = "INFO"
 

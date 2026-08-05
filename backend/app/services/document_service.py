@@ -9,6 +9,11 @@ from app.models.Document import Document, DocumentStatus
 from app.models.User import User
 from app.repositories.document_repository import DocumentRepository
 from app.schemas.document import DocumentCreate, DocumentResponse
+from app.utils.storage import (
+    InvalidStoragePathError,
+    build_storage_path,
+    ensure_organization_upload_dir,
+)
 
 
 class DocumentService:
@@ -23,12 +28,24 @@ class DocumentService:
         data: DocumentCreate,
         current_user: User,
     ) -> DocumentResponse:
-        """Create a document record for the current user's organization."""
+        """Create a document record with a server-controlled storage path."""
+        try:
+            ensure_organization_upload_dir(current_user.organization_id)
+            storage_path = build_storage_path(
+                organization_id=current_user.organization_id,
+                filename=data.filename,
+            )
+        except InvalidStoragePathError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(exc),
+            ) from exc
+
         document = Document(
             organization_id=current_user.organization_id,
             uploaded_by=current_user.id,
             filename=data.filename,
-            file_path=data.file_path,
+            storage_path=storage_path,
             status=DocumentStatus.PENDING,
         )
         created = self.document_repo.create_document(document)

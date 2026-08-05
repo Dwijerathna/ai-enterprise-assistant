@@ -28,9 +28,16 @@ def create_document(
     current_user: User = Depends(get_current_user),
     document_service: DocumentService = Depends(get_document_service),
 ) -> DocumentResponse:
-    """Create a document record and queue background processing."""
+    """Create a document record and queue background processing.
+
+    Accepts filename only — storage_path is generated server-side.
+    """
     document = document_service.create_document(data, current_user)
-    background_tasks.add_task(process_document_task, str(document.id))
+    background_tasks.add_task(
+        process_document_task,
+        str(document.id),
+        str(current_user.organization_id),
+    )
     return document
 
 
