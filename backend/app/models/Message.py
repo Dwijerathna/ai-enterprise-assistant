@@ -5,9 +5,10 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Text, func
+from sqlalchemy import DateTime, Enum, ForeignKey, Text, Integer, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 
 from app.db.base import Base
 
@@ -20,6 +21,11 @@ class MessageRole(str, enum.Enum):
     USER = "user"
     ASSISTANT = "assistant"
     SYSTEM = "system"
+
+
+class MessageProcessingStatus(str, enum.Enum):
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
 
 
 class Message(Base):
@@ -47,11 +53,37 @@ class Message(Base):
         nullable=False,
     )
     content: Mapped[str] = mapped_column(Text, nullable=False)
+    processing_status: Mapped[MessageProcessingStatus] = mapped_column(
+        Enum(
+            MessageProcessingStatus,
+            name="message_processing_status"
+        ),
+        nullable=False,
+        default=MessageProcessingStatus.COMPLETED,
+        server_default="COMPLETED",
+    )
+
+    error_message: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
+    token_usage: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+    )
+
+    model_name: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
         nullable=False,
     )
+
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
