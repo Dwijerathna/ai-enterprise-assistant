@@ -19,6 +19,26 @@ class DocumentRepository(BaseRepository[Document]):
         """Persist a new document record."""
         return self.create(document)
 
+    def get_by_id(self, record_id: uuid.UUID) -> Document | None:
+        """Return a single record by primary key."""
+        return self.db.get(self.model, record_id)
+
+    def get_by_id_and_organization(
+        self,
+        document_id: uuid.UUID,
+        organization_id: uuid.UUID,
+    ) -> Document | None:
+        """Return a document scoped to an organization."""
+        stmt = select(Document).where(
+            Document.id == document_id,
+            Document.organization_id == organization_id,
+        )
+        return self.db.scalars(stmt).first()
+
+    def increment_retry_count(self, document: Document) -> Document:
+        """Increment the document retry counter."""
+        return self.update(document, {"retry_count": document.retry_count + 1})
+
     def update_status(
         self,
         document: Document,
