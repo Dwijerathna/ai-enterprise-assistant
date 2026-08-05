@@ -88,46 +88,6 @@ created_at
 ---
 
 
-## Documents
-
-
-Purpose:
-
-Store uploaded enterprise documents.
-
-
-Fields:
-
-
-id
-
-organization_id
-
-filename
-
-file_type
-
-
-
-chunk_count
-
-
-
-created_at
-processing_status
-
-values:
-
-pending
-processing
-ready
-failed
-
-
-
----
-
-
 ## Conversations Table
 
 
@@ -156,40 +116,11 @@ Indexes:
 - user_id
 
 
-## Messages
 
-
-Purpose:
-
-Store chat messages.
-
-
-Fields:
-
-id
-
-conversation_id
-
-role
-
-content
-
-timestamp
-
-INDEX organization_id
-
-INDEX user_id
-
-INDEX conversation_id
-
-INDEX document_id
 # Document Processing Lifecycle
 
 
-## Processing Status Management
-
-
-The document ingestion process is asynchronous and uses status tracking to monitor the progress of uploaded documents.
+The document ingestion pipeline is asynchronous and tracks progress using processing_status.
 
 
 ## Document Status Flow
@@ -199,143 +130,64 @@ pending
 
 ↓
 
-processing
+uploading
+
+↓
+
+extracting
+
+↓
+
+cleaning
+
+↓
+
+chunking
+
+↓
+
+embedding
+
+↓
+
+indexing
 
 ↓
 
 ready
+
+
+If any stage fails:
 
 ↓
 
 failed
 
 
-
 ## Status Definitions
 
 
-### Pending
-
-
-The document has been uploaded but processing has not started.
-
-
-### Processing
-
-
-The system is currently performing:
-
-
-- Text extraction
-- Content cleaning
-- Semantic chunking
-- Embedding generation
-- Vector storage
-
-
-### Ready
-
-
-The document has been successfully processed and is available for AI retrieval.
-
-
-### Failed
-
-
-The document processing pipeline failed due to:
-
-- Unsupported file format
-- Extraction errors
-- Embedding generation errors
-- Storage failures
-
-
-
-## Database Field Addition
-
-
-Documents Table:
-
-
-processing_status
-
-
-Possible values:
-
-
-- pending
-- processing
-- ready
-- failed
-
-## Tenant Isolation Fields
-
-
-All organization-owned tables must contain organization_id.
-
-
-Required tables:
-
-
-Users
-
-- organization_id
-
-
-Documents
-
-- organization_id
-
-
-Conversations
-
-- organization_id
-
-
-Messages
-
-- organization_id
-
-
-
-Reason:
-
-Direct organization filtering prevents accidental cross-tenant data exposure.
-
-# Document Processing Tracking
-
-
-The document table maintains processing information to support asynchronous ingestion.
-
-
-Additional Fields:
-
-
-processing_status
-
-Possible values:
-
-- pending
-- processing
-- ready
-- failed
-
-
-processing_started_at
-
-Stores processing start time.
-
-
-
-processing_completed_at
-
-Stores successful completion time.
-
-
-
-error_message
-
-Stores failure details when processing fails.
+| Status | Description |
+|---|---|
+| pending | Document record created but processing has not started |
+| uploading | File upload is in progress |
+| extracting | Text extraction is running |
+| cleaning | Extracted text is cleaned |
+| chunking | Text is divided into semantic chunks |
+| embedding | Vector embeddings are generated |
+| indexing | Chunks are stored in Qdrant |
+| ready | Document is available for retrieval |
+| failed | Processing failed |
+
+## Tracking Fields
+
+
+Documents table maintains:
+
+- processing_status
+- processing_started_at
+- processing_completed_at
+- error_message
 
 # Document Chunk Metadata
 
