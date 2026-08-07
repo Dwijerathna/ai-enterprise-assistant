@@ -26,12 +26,16 @@ def generate_embeddings(texts: list[str]) -> list[list[float]]:
     return _get_embedding_provider().generate_embeddings(texts)
 
 
-def generate_embeddings_task(chunks: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def generate_embeddings_task(
+    chunks: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], str | None]:
     """
-    Generate embeddings and prepare Qdrant upsert payloads for document chunks.
+    Generate embeddings and persist vectors to Qdrant.
+
+    Returns prepared chunk metadata and an optional terminal failure reason.
     """
     if not chunks:
-        return []
+        return [], None
 
     provider = _get_embedding_provider()
     texts = [str(chunk.get("content", "")) for chunk in chunks]
@@ -40,7 +44,7 @@ def generate_embeddings_task(chunks: list[dict[str, Any]]) -> list[dict[str, Any
         vectors = provider.generate_embeddings(texts)
     except EmbeddingProviderError:
         logger.warning("Embedding provider unavailable — skipping vector persistence")
-        return []
+        return [], None
 
     prepared: list[dict[str, Any]] = []
     organization_id = chunks[0].get("organization_id")
@@ -49,7 +53,7 @@ def generate_embeddings_task(chunks: list[dict[str, Any]]) -> list[dict[str, Any
 
     if not organization_id or not collection_name:
         logger.warning("Missing organization or collection metadata for embedding task")
-        return []
+        return [], None
 
     qdrant = QdrantService(collection_name=str(collection_name))
     if vectors:
@@ -90,8 +94,9 @@ def generate_embeddings_task(chunks: list[dict[str, Any]]) -> list[dict[str, Any
             }
         )
 
-    if qdrant_points:
-        qdrant.upsert_vectors(UUID(str(organization_id)), qdrant_points)
+    if qdrant_points and not qdrant.upsert_vectors(UUID(str(organization_id)), qdrant_points):
+        logger.warning("Qdrant indexing unavailable for organization_id=%s", organization_id)
+        return [], "Qdrant indexing unavailable"
 
     logger.info("Prepared embeddings for %d chunks", len(prepared))
-    return prepared
+    return prepared, None

@@ -11,8 +11,10 @@ from app.repositories.document_repository import DocumentRepository
 from app.schemas.document import DocumentCreate, DocumentResponse
 from app.utils.storage import (
     InvalidStoragePathError,
+    UploadTooLargeError,
     build_storage_path,
     ensure_organization_upload_dir,
+    save_document_file,
 )
 
 
@@ -50,6 +52,49 @@ class DocumentService:
         )
         created = self.document_repo.create_document(document)
         return DocumentResponse.model_validate(created)
+
+    def upload_document(
+        self,
+        filename: str,
+        content: bytes,
+        current_user: User,
+    ) -> DocumentResponse:
+        """Save an uploaded file and create a document record for ingestion."""
+        try:
+            safe_filename, storage_path = save_document_file(
+                organization_id=current_user.organization_id,
+                filename=filename,
+                content=content,
+            )
+        except InvalidStoragePathError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(exc),
+            ) from exc
+        except UploadTooLargeError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+                detail=str(exc),
+            ) from exc
+
+        document = Document(
+            organization_id=current_user.organization_id,
+            uploaded_by=current_user.id,
+            filename=safe_filename,
+            storage_path=storage_path,
+            status=DocumentStatus.PENDING,
+        )
+        created = self.document_repo.create_document(document)
+        return DocumentResponse.model_validate(created)
+
+    def get_document_response(
+        self,
+        document_id: uuid.UUID,
+        current_user: User,
+    ) -> DocumentResponse:
+        """Return a document scoped to the user's organization."""
+        document = self.get_document(document_id, current_user.organization_id)
+        return DocumentResponse.model_validate(document)
 
     def get_user_documents(
         self,

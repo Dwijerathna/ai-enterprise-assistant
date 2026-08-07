@@ -13,10 +13,36 @@ from app.repositories.document_repository import DocumentRepository
 from app.repositories.organization_repository import OrganizationRepository
 from app.services.ingestion_service import IngestionService
 from app.tasks.embedding_tasks import generate_embeddings_task
+from app.utils.file_parser import UnsupportedFileTypeError
 
 logger = get_logger(__name__)
 
 MAX_RETRY_COUNT = 3
+NON_RETRYABLE_ERRORS = (FileNotFoundError, UnsupportedFileTypeError)
+
+
+def _mark_document_failed(
+    document_repo: DocumentRepository,
+    log_repo: DocumentProcessingLogRepository,
+    document,
+    *,
+    stage: str,
+    error_message: str,
+) -> None:
+    """Persist a terminal failure for a document."""
+    log_repo.create_log(
+        document.id,
+        document.organization_id,
+        stage=stage,
+        status=ProcessingLogStatus.FAILED,
+        error_message=error_message,
+    )
+    document_repo.update_status(document, DocumentStatus.FAILED)
+    logger.error(
+        "Document processing failed permanently: document_id=%s reason=%s",
+        document.id,
+        error_message,
+    )
 
 
 def process_document_task(document_id: str, organization_id: str) -> None:
@@ -47,10 +73,22 @@ def process_document_task(document_id: str, organization_id: str) -> None:
             return
 
         try:
+            current_stage = DocumentStatus.PROCESSING.value
+            document_repo.update_status(document, DocumentStatus.PROCESSING)
+
             current_stage = DocumentStatus.EXTRACTING.value
             document_repo.update_status(document, DocumentStatus.EXTRACTING)
             pages = ingestion_service.extract_pages(document.storage_path)
             cleaned_pages = ingestion_service.clean_pages(pages)
+            if not ingestion_service.has_extractable_text(cleaned_pages):
+                _mark_document_failed(
+                    document_repo,
+                    log_repo,
+                    document,
+                    stage=current_stage,
+                    error_message="No extractable text found in document",
+                )
+                return
             log_repo.create_log(
                 document.id,
                 document.organization_id,
@@ -103,7 +141,17 @@ def process_document_task(document_id: str, organization_id: str) -> None:
                 }
                 for chunk in saved_chunks
             ]
-            embedding_results = generate_embeddings_task(chunk_payloads)
+            embedding_results, indexing_failure = generate_embeddings_task(chunk_payloads)
+            if indexing_failure:
+                _mark_document_failed(
+                    document_repo,
+                    log_repo,
+                    document,
+                    stage=DocumentStatus.INDEXING.value,
+                    error_message=indexing_failure,
+                )
+                return
+
             if saved_chunks and not embedding_results:
                 error_message = "Embedding provider unavailable"
                 logger.warning(
@@ -112,16 +160,22 @@ def process_document_task(document_id: str, organization_id: str) -> None:
                     error_message,
                 )
                 document = document_repo.increment_retry_count(document)
-                log_repo.create_log(
-                    document.id,
-                    document.organization_id,
-                    stage=DocumentStatus.EMBEDDING.value,
-                    status=ProcessingLogStatus.FAILED,
-                    error_message=error_message,
-                )
                 if document.retry_count >= MAX_RETRY_COUNT:
-                    document_repo.update_status(document, DocumentStatus.FAILED)
+                    _mark_document_failed(
+                        document_repo,
+                        log_repo,
+                        document,
+                        stage=DocumentStatus.EMBEDDING.value,
+                        error_message=error_message,
+                    )
                 else:
+                    log_repo.create_log(
+                        document.id,
+                        document.organization_id,
+                        stage=DocumentStatus.EMBEDDING.value,
+                        status=ProcessingLogStatus.FAILED,
+                        error_message=error_message,
+                    )
                     document_repo.update_status(document, DocumentStatus.PENDING)
                 return
 
@@ -152,17 +206,24 @@ def process_document_task(document_id: str, organization_id: str) -> None:
             logger.info("Document processing completed: %s", document_id)
         except Exception as exc:
             logger.exception("Document processing failed: %s", document_id)
+            error_message = str(exc)
             document = document_repo.increment_retry_count(document)
-            log_repo.create_log(
-                document.id,
-                document.organization_id,
-                stage=current_stage,
-                status=ProcessingLogStatus.FAILED,
-                error_message=str(exc),
-            )
-            if document.retry_count >= MAX_RETRY_COUNT:
-                document_repo.update_status(document, DocumentStatus.FAILED)
+            if isinstance(exc, NON_RETRYABLE_ERRORS) or document.retry_count >= MAX_RETRY_COUNT:
+                _mark_document_failed(
+                    document_repo,
+                    log_repo,
+                    document,
+                    stage=current_stage,
+                    error_message=error_message,
+                )
             else:
+                log_repo.create_log(
+                    document.id,
+                    document.organization_id,
+                    stage=current_stage,
+                    status=ProcessingLogStatus.FAILED,
+                    error_message=error_message,
+                )
                 document_repo.update_status(document, DocumentStatus.PENDING)
     finally:
         db.close()

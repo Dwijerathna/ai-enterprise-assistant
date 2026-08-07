@@ -125,8 +125,14 @@ class QdrantService:
         self,
         organization_id: UUID,
         points: list[dict[str, Any]],
-    ) -> None:
-        """Insert or update vector points in the collection."""
+    ) -> bool:
+        """Insert or update vector points in the collection.
+
+        Returns True when vectors were persisted to Qdrant, False when unavailable.
+        """
+        if not points:
+            return True
+
         expected_org = str(organization_id)
         for point in points:
             payload = point.get("payload", {})
@@ -137,12 +143,12 @@ class QdrantService:
                 )
 
         if not self._available or self._client is None:
-            logger.info(
-                "Offline mode: upsert_vectors collection=%s count=%d",
+            logger.warning(
+                "Qdrant unavailable: upsert skipped for collection=%s count=%d",
                 self.collection_name,
                 len(points),
             )
-            return
+            return False
 
         from qdrant_client.http import models as qmodels
 
@@ -154,7 +160,16 @@ class QdrantService:
             )
             for point in points
         ]
-        self._client.upsert(collection_name=self.collection_name, points=qdrant_points)
+        try:
+            self._client.upsert(collection_name=self.collection_name, points=qdrant_points)
+        except Exception:
+            logger.exception(
+                "Qdrant upsert failed for collection=%s count=%d",
+                self.collection_name,
+                len(points),
+            )
+            return False
+        return True
 
     def search_vectors(
         self,
@@ -196,19 +211,29 @@ class QdrantService:
                 )
             )
 
-        results = self._client.search(
-            collection_name=self.collection_name,
-            query_vector=query_vector,
-            limit=limit,
-            query_filter=qmodels.Filter(must=must_conditions),
-        )
+        query_filter = qmodels.Filter(must=must_conditions)
+        try:
+            response = self._client.query_points(
+                collection_name=self.collection_name,
+                query=query_vector,
+                query_filter=query_filter,
+                limit=limit,
+            )
+        except Exception:
+            logger.exception(
+                "Qdrant query failed for collection=%s org=%s",
+                self.collection_name,
+                organization_id,
+            )
+            return []
+
         return [
             {
-                "id": str(result.id),
-                "score": result.score,
-                "payload": result.payload or {},
+                "id": str(point.id),
+                "score": point.score,
+                "payload": point.payload or {},
             }
-            for result in results
+            for point in response.points
         ]
 
     def delete_vectors(self, document_id: UUID, organization_id: UUID) -> None:

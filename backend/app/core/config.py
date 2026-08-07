@@ -48,6 +48,7 @@ class Settings(BaseSettings):
 
     # Document storage
     uploads_dir: str = "uploads"
+    max_upload_size_mb: int = 20
 
     # Logging
     log_level: str = "INFO"
@@ -71,6 +72,11 @@ class Settings(BaseSettings):
     @property
     def is_development(self) -> bool:
         return self.environment.lower() == "development"
+
+    @property
+    def max_upload_size_bytes(self) -> int:
+        """Maximum allowed upload size in bytes."""
+        return self.max_upload_size_mb * 1024 * 1024
 
 
 @lru_cache

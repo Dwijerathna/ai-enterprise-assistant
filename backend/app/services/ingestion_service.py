@@ -49,6 +49,11 @@ class IngestionService:
             for page in pages
         ]
 
+    def has_extractable_text(self, pages: list[dict]) -> bool:
+        """Return True when cleaned pages contain non-whitespace text."""
+        combined = "\n".join(str(page.get("text", "")) for page in pages)
+        return bool(combined.strip())
+
     def create_chunks(
         self,
         pages: list[dict],
