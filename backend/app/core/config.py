@@ -34,17 +34,17 @@ class Settings(BaseSettings):
     postgres_port: int = 5432
     postgres_db: str = "enterprise_ai"
 
-    
-
     # AI Configuration
     ollama_base_url: str = "http://localhost:11434"
     llm_model: str = "llama3"
+    llm_provider: str = "mock"
     embedding_model: str = "nomic-embed-text"
-    
+    embedding_provider: str = "mock"
+    embedding_vector_size: int = 768
+
     # Vector Database
     qdrant_host: str = "localhost"
     qdrant_port: int = 6333
-    
 
     # Document storage
     uploads_dir: str = "uploads"

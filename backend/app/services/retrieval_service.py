@@ -5,8 +5,8 @@ import uuid
 from sqlalchemy.orm import Session
 
 from app.core.logging import get_logger
+from app.integrations.embedding_factory import get_embedding_provider
 from app.integrations.embeddings import EmbeddingProvider, EmbeddingProviderError
-from app.integrations.ollama_client import OllamaClient
 from app.integrations.qdrant_client import QdrantService
 from app.repositories.document_chunk_repository import DocumentChunkRepository
 from app.repositories.document_repository import DocumentRepository
@@ -28,7 +28,7 @@ class RetrievalService:
         self.chunk_repo = DocumentChunkRepository(db)
         self.document_repo = DocumentRepository(db)
         self.org_repo = OrganizationRepository(db)
-        self.embedding_provider = embedding_provider or OllamaClient()
+        self.embedding_provider = embedding_provider or get_embedding_provider()
 
     def search(
         self,

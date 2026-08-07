@@ -3,7 +3,10 @@
 from contextlib import asynccontextmanager
 from collections.abc import AsyncIterator
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 
 from app.api.router import api_router
 from app.core.config import get_settings
@@ -60,6 +63,22 @@ def create_app() -> FastAPI:
     )
 
     application.include_router(api_router, prefix=settings.api_v1_prefix)
+
+    @application.exception_handler(RequestValidationError)
+    async def validation_exception_handler(
+        request: Request,
+        exc: RequestValidationError,
+    ) -> JSONResponse:
+        logger.warning(
+            "Request validation failed: %s %s errors=%s",
+            request.method,
+            request.url.path,
+            exc.errors(),
+        )
+        return JSONResponse(
+            status_code=422,
+            content={"detail": jsonable_encoder(exc.errors())},
+        )
 
     @application.get("/", tags=["Root"])
     def root() -> dict[str, str]:

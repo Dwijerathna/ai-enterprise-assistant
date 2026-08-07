@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
+from app.core.logging import get_logger
 from app.schemas.auth import (
     LoginRequest,
     RegisterRequest,
@@ -11,6 +12,8 @@ from app.schemas.auth import (
     TokenResponse,
 )
 from app.services.auth_service import AuthService
+
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -38,5 +41,6 @@ def login(
     auth_service: AuthService = Depends(get_auth_service),
 ) -> TokenResponse:
     """Authenticate a user and return JWT tokens."""
+    logger.info("Login attempt for email=%s", data.email)
     user = auth_service.authenticate_user(data)
     return auth_service.create_tokens(user)

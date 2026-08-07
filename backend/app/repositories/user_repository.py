@@ -26,6 +26,11 @@ class UserRepository(BaseRepository[User]):
             stmt = stmt.where(User.organization_id == organization_id)
         return self.db.scalars(stmt).first()
 
+    def get_users_by_email(self, email: str) -> list[User]:
+        """Return all users matching an email address across organizations."""
+        stmt = select(User).where(User.email == email)
+        return list(self.db.scalars(stmt).all())
+
     def get_by_username(
         self,
         username: str,

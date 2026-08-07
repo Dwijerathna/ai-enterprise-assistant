@@ -5,15 +5,15 @@ from typing import Any
 from uuid import UUID
 
 from app.core.logging import get_logger
-from app.integrations.embeddings import EmbeddingProviderError
-from app.integrations.ollama_client import OllamaClient
+from app.integrations.embedding_factory import get_embedding_provider
+from app.integrations.embeddings import EmbeddingProvider, EmbeddingProviderError
 from app.integrations.qdrant_client import QdrantService
 
 logger = get_logger(__name__)
 
 
-def _get_embedding_provider() -> OllamaClient:
-    return OllamaClient()
+def _get_embedding_provider() -> EmbeddingProvider:
+    return get_embedding_provider()
 
 
 def generate_embedding(text: str) -> list[float]:

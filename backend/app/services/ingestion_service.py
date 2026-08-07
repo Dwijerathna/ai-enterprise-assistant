@@ -4,6 +4,7 @@ from pathlib import Path
 
 from app.core.config import get_settings
 from app.core.logging import get_logger
+from app.integrations.embedding_factory import get_embedding_provider
 from app.models.Document import Document
 from app.utils.chunking import create_chunks_from_pages
 from app.utils.file_parser import extract_document_pages
@@ -63,7 +64,7 @@ class IngestionService:
         chunks: list[dict],
     ) -> list[dict]:
         """Attach tenant and embedding metadata to prepared chunks."""
-        embedding_model = get_settings().embedding_model
+        embedding_model = get_embedding_provider().embedding_model
         prepared_chunks: list[dict] = []
 
         for chunk in chunks:

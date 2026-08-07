@@ -67,3 +67,4 @@ class User(Base):
         foreign_keys="Document.uploaded_by",
     )
     conversations: Mapped[list[Conversation]] = relationship(back_populates="user")
+    

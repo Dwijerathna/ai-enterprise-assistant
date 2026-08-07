@@ -1,6 +1,7 @@
 """Business logic layer (services)."""
 
 from app.services.auth_service import AuthService
+from app.services.chat_service import ChatService
 from app.services.conversation_service import ConversationService
 from app.services.document_service import DocumentService
 from app.services.health import HealthService
@@ -11,6 +12,7 @@ from app.services.user_service import UserService
 
 __all__ = [
     "AuthService",
+    "ChatService",
     "ConversationService",
     "DocumentService",
     "HealthService",
